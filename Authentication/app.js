@@ -22,17 +22,20 @@ const PORT = process.env.PORT || 3000;
 // const LOGIN_LOG_FILE = path.join(__dirname, 'login_log.txt');
 connectDB();
 
+// ✅ ADDED: FRONTEND_URL variable that reads from your .env file
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:1234";
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors({ origin: "http://localhost:1234", credentials: true }));
+
+// ✅ CHANGED: Using the FRONTEND_URL variable for the CORS origin
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
 
 // --- CRITICAL FIX 1: Trust proxy for session cookies to work with Render's HTTPS ---
 app.set('trust proxy', 1); // Trust the first proxy in front of your app (Render's load balancer)
-
 app.use(methodOverride('_method'));
-
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -111,8 +114,8 @@ app.post('/signup', async (req, res) => {
         req.session.username = newUser.username;
         req.session.userId = newUser._id;
 
-        return res.redirect("http://localhost:1234");
-
+        // ✅ CHANGED: Using the FRONTEND_URL variable for the redirect
+        return res.redirect(FRONTEND_URL);
     } catch (error) {
         console.error('Error during signup:', error);
         if (error.code === 11000) {
@@ -148,8 +151,8 @@ app.post('/login', async (req, res) => {
         // Logging directly to console for Render
         console.log(`[Login Log] ${username} logged in at ${now.toLocaleString()}`);
 
-         return res.redirect("http://localhost:1234");
-
+        // ✅ CHANGED: Using the FRONTEND_URL variable for the redirect
+        return res.redirect(FRONTEND_URL);
     } catch (error) {
         console.error('Error during login:', error);
         res.status(500).render('login', { error3: 'Server error during login', error4: null });
@@ -167,14 +170,11 @@ app.post('/logout', (req, res) => {
     });
 });
 
-
 app.get('/forgot', (req, res) => {
     res.render('forgot', { error: null, message: null });
 });
-
 app.post('/forgot', async (req, res) => {
     const { username } = req.body;
-
     try {
         const user = await User.findOne({ username });
 
@@ -217,7 +217,13 @@ app.post('/forgot', async (req, res) => {
         res.status(500).render('forgot', { error: 'Server error. Try again.', message: null });
     }
 });
-
+app.get("/api/session", (req, res) => {
+  if (req.session && req.session.username) {
+    res.json({ loggedIn: true, username: req.session.username });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
 app.post('/verify', async (req, res) => {
     const { username, otp } = req.body;
 
@@ -307,3 +313,4 @@ app.listen(PORT, () => {
         console.log(`MongoDB URI not set in environment variables.`);
     }
 });
+
